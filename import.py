@@ -66,12 +66,21 @@ def dijkstra_latency(start,goal):
         dj2=float(shortest_distance[goal])*1.05 #Latencia +/- 10
         dj3=float(shortest_distance[goal])*1.1 #Price +/- 20 Verificar ojooo
         f= open("output.txt","a+")
-        f.write('LC'+start+'_'+goal+'='+'Link('+'"LC'+start+'_'+goal+'",'+str(shortest_distance[goal])+','+'100'+',"Claro",'+'"S'+start+'",'+'"S'+goal+'")'+ "\n")
-        f.write('mynet.addLink(LC'+start+'_'+goal+')'+ "\n")
-        f.write('LM'+start+'_'+goal+'='+'Link('+'"LM'+start+'_'+goal+'",'+str(dj2)+','+'80'+',"Movistar",'+'"S'+start+'",'+'"S'+goal+'")'+ "\n")
-        f.write('mynet.addLink(LM'+start+'_'+goal+')'+ "\n")
-        f.write('LT'+start+'_'+goal+'='+'Link('+'"LT'+start+'_'+goal+'",'+str(dj3)+','+'70'+',"Tigo",'+'"S'+start+'",'+'"S'+goal+'")'+ "\n")
-        f.write('mynet.addLink(LT'+start+'_'+goal+')'+ "\n")
+        if (start!=goal):
+            f.write('LC'+start+'_'+goal+'='+'Link('+'"LC'+start+'_'+goal+'",'+str(shortest_distance[goal])+','+'100'+',"Claro",'+'"S'+start+'",'+'"S'+goal+'")'+ "\n")
+            f.write('mynet.addLink(LC'+start+'_'+goal+')'+ "\n")
+            f.write('LM'+start+'_'+goal+'='+'Link('+'"LM'+start+'_'+goal+'",'+str(dj2)+','+'80'+',"Movistar",'+'"S'+start+'",'+'"S'+goal+'")'+ "\n")
+            f.write('mynet.addLink(LM'+start+'_'+goal+')'+ "\n")
+            f.write('LT'+start+'_'+goal+'='+'Link('+'"LT'+start+'_'+goal+'",'+str(dj3)+','+'70'+',"Tigo",'+'"S'+start+'",'+'"S'+goal+'")'+ "\n")
+            f.write('mynet.addLink(LT'+start+'_'+goal+')'+ "\n")
+        else:
+            f.write('LC'+start+'_'+goal+'='+'Link('+'"LC'+start+'_'+goal+'",'+str(shortest_distance[goal])+','+'0'+',"Claro",'+'"S'+start+'",'+'"S'+goal+'")'+ "\n")
+            f.write('mynet.addLink(LC'+start+'_'+goal+')'+ "\n")
+            f.write('LM'+start+'_'+goal+'='+'Link('+'"LM'+start+'_'+goal+'",'+str(dj2)+','+'0'+',"Movistar",'+'"S'+start+'",'+'"S'+goal+'")'+ "\n")
+            f.write('mynet.addLink(LM'+start+'_'+goal+')'+ "\n")
+            f.write('LT'+start+'_'+goal+'='+'Link('+'"LT'+start+'_'+goal+'",'+str(dj3)+','+'0'+',"Tigo",'+'"S'+start+'",'+'"S'+goal+'")'+ "\n")
+            f.write('mynet.addLink(LT'+start+'_'+goal+')'+ "\n")
+            
         f.close()
 
 ####modulo impresion######
@@ -102,7 +111,8 @@ for i in range(10):
 f.close()
 for i in range(max): #este es el for - source
     f= open("output.txt","a+")
-    f.write('S'+str(i)+' = Switch("S'+str(i)+'", '+str(randint(10000,500000))+', "C'+str(i)+'", '+str(randint(2,10))+')'+"\n")
+    #f.write('S'+str(i)+' = Switch("S'+str(i)+'", '+str(randint(10000,500000))+', "C'+str(i)+'", '+str(randint(2,10))+')'+"\n")
+    f.write('S'+str(i)+' = Switch("S'+str(i)+'", '+str(randint(10000,500000))+', '+str(randint(2,10))+')'+"\n")
     f.write('mynet.addSwitch(S'+str(i)+')'+"\n")
     f.close()
 
