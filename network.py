@@ -51,19 +51,19 @@ processingDelay:\t{}
     def getReceivedRequest(self): #Cambia el lugar del controlador (de switche a controlador)   se=configura, parametriza
         temp = 0
         for switch in self.controlledSW:
-            temp += switch.getFlowSetupRequest() #Sumatoria total de peticiones de todos los switches que tiene el controlador
+            temp+= int(switch.getFlowSetupRequest()) #Sumatoria total de peticiones de todos los switches que tiene el controlador
         self.receivedRequest = temp
         return self.receivedRequest
         
     def getTotalProcessingDelay(self): #Get: Obtiene datos, devolver datos, procesa         
-        self.totalProcessingDelay = (self.getReceivedRequest()/1.6)*self.deployedIn.getProcessingDelay()                
+        self.totalProcessingDelay = (self.getReceivedRequest()/1600000)*int(self.deployedIn.getProcessingDelay())                
         return self.totalProcessingDelay
   
 class Switch():
     def __init__(self,idSwitch,flowSetupRequest,processingDelay):
         self.idSwitch=idSwitch
-        self.flowSetupRequest=flowSetupRequest
-        self.processingDelay=processingDelay
+        self.flowSetupRequest=int(flowSetupRequest) 
+        self.processingDelay=int(processingDelay)
 
     def getFlowSetupRequest(self):
         return self.flowSetupRequest        
@@ -129,13 +129,15 @@ class Network():
             self.links[index].setState(True)
             lim_inf += 3
             
-    def randomSolution(self, p_controllers):   
+    #def randomSolution(self, p_controllers,maxFlowSetupLatency, maxInterControllerLatency):
+    def randomSolution(self, p_controllers): 
         SDNisValid = False
         #1.Activate controllers
         #1.1 Activa controllers randomly
         for controller in self.controllers:
             if(uniform(0, 1)<p_controllers):
                 controller.setState(True)
+                #controller.
                 SDNisValid = True
                 #print(controller.idController)
         #1.2 Activate at least on controller radomly (else)
@@ -154,7 +156,8 @@ class Network():
         #2.2 Assign switches to active controllers
         #Zipping
         for controller in activecontrollers:            
-            controller.addControlledSW(self.switches[0])
+            #controller.addControlledSW(self.switches[0])
+            #print(controller)
             print(controller.idController)
        
         ActiveSwitches=[]
@@ -162,7 +165,7 @@ class Network():
             #print(Sws.idSwitch)
             ActiveSwitches.append(Sws.idSwitch)
         print (*ActiveSwitches)
-        
+
         #To assing Cn Sn rule
         New=()
         SelfSC=[]
@@ -191,13 +194,17 @@ class Network():
         LLinks=[]
         Providers=["LC","LM","LT"]
         for start,target in zip_list:
-            #Controller.addControlledSW(target,start)
-            #target.Controller.addControlledSW(start)
-            #Change to assing differents providers, due to it was just Claro 
             x=randint(0,2)
             LLinks.append(Providers[x]+str(start.lstrip('S'))+"_"+str(target.lstrip('C'))) #var = "LC"+str(start.lstrip('S'))+'_'+str(target.lstrip('C'))
-            
-        #print(LLinks) #Descomentar para ver la asignación Controller-Switch
+            for controller in activecontrollers:
+                if (controller.idController==target):
+                    #print(t.idController)
+                    keeperC=controller
+                    p=start.lstrip('S')
+                    p=int(p)
+                    keeperC.addControlledSW(self.switches[p])
+           
+        print(LLinks) #Descomentar para ver la asignación Controller-Switch
         Link_Cost=0
         for w in LLinks:
             for y in self.links:
@@ -237,9 +244,25 @@ class Network():
                 for y in self.links:
                     if (y.idLink==w):
                         IntercontrollerCostLC+=y.price
+        
+        #2.4 To know latency by each Controller and Processing Delay
+        for w in activecontrollers:#Go for every Controller to look for Latency in each Link
+            AcumL=0
+            for i in LLinks:#Go for each element in the list
+                z=i.split('_')#Split by "_"
+                Cid="C"+z[1]
+                if (Cid==w.idController):#looking for w controller
+                    for j in self.links:
+                        if (j.idLink==i):#compare both lists
+                            AcumL+=float(j.latency)
+
+            AcumL=AcumL*2
+            print("La latencia para "+str(w.idController)+" (x2) es: "+str(AcumL)+" ms")
+            print("El processing Delay para "+str(w.idController)+" es: "+str(w.getTotalProcessingDelay())+" ms")
+
         return (Link_Cost,IntercontrollerCostLC)
                     
-            
+           
 class Link():
     def __init__(self,idLink, latency, price, carrierId, sourceId , destinationId):
         self.idLink = idLink
@@ -300,20 +323,25 @@ for pointer in Lkns:
     di=pointer[6]
     test=Link(idl,lt,pr,cr,sc,di)
     mynet.addLink(test)
-for pointer in Ctrs:
-    Idc=pointer[0]
-    Din=pointer[1]
-    #Pcr=pointer[2] #Change
-    Pcr=priceController
-    Sta=pointer[3]
-    test=Controller(Idc, Din,  priceController, Sta)
-    mynet.addController(test)
 for pointer in Swts:
     IdS=pointer[0]
     FlS=pointer[1]
     PrD=pointer[2]
     test =Switch(IdS,FlS,PrD)
     mynet.addSwitch(test)
+    
+for pointer in Ctrs:
+    Idc=pointer[0]
+    p=Idc.lstrip('C')
+    p=int(p)
+    Din=mynet.switches[p]
+    #Din=pointer[1]
+    #Pcr=pointer[2] #Change
+    Pcr=priceController
+    Sta=pointer[3]
+    test=Controller(Idc, Din,  priceController, Sta)
+    mynet.addController(test)
+    
 #priceController=200
 #C20 = Controller("C20", "S20",  priceController, False)
 #mynet.addController(C20)
