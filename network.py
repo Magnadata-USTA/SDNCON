@@ -121,7 +121,6 @@ class Network():
         #print(self.controllers[controller])
         
     def chController(self, controller,controller2):
-        #self.controllers.append(controller)
         #print(self.controllers[controller])
         #print(self.controllers[controller2])
         self.controllers[controller2].controlledSW=self.controllers[controller].controlledSW
@@ -133,6 +132,58 @@ class Network():
         self.controllers[controller2].getTotalProcessingDelay()
         #print(self.controllers[controller])
         #print(self.controllers[controller2])
+        
+    def calculateLP(self,activecontrollers,LLinks,List_IntercotrollerCost,maxFlowSetupLatency,maxInterControllerLatency,status):
+        #To know latency by each Controller and Processing Delay
+        status=0
+        for w in activecontrollers:#Go for every Controller to look for Latency in each Link
+            AcumL=0
+            for i in LLinks:#Go for each element in the list
+                z=i.split('_')#Split by "_"
+                Cid="C"+z[1]
+                Cid2=z[0]
+                Cid2="S"+Cid2[2:]
+                if (Cid==w.idController):#looking for w controller
+                    for j in self.links:
+                        if (j.idLink==i):#compare both lists
+                            AcumT=0
+                            #AcumL+=float(j.latency)
+                            AcumL=float(j.latency)
+                            AcumL=AcumL*2
+                            #print("La latencia para "+str(w.idController)+"-"+str(Cid2)+ " (x2) es: "+str(j.latency)+" ms")
+                            AcumT=AcumL+w.getTotalProcessingDelay()
+                            print("2L + P para "+str(w.idController)+"-"+str(Cid2)+ " es: "+str(AcumT)+" ms")
+                            if (AcumT >= maxFlowSetupLatency):
+                                print("La pareja "+str(w.idController)+"-"+str(Cid2)+ " no cumple con el Constrain")
+                                status=1
+ 
+        #2.5 Max. Latency Intercontroller (Constrain)
+        print("\n"+"Latencia Inter-Controller")
+        if (len(activecontrollers) > 1):
+            print(*List_IntercotrollerCost) #keep in mind for intercontroller Latency
+            AcumL=0
+            for w in activecontrollers[:-1]:#Go for every Controller to look for Latency in each Link
+                #AcumL=0
+                for i in List_IntercotrollerCost:#Go for each element in the list
+                    z=i.split('_')#Split by "_"
+                    Cid=z[0]
+                    Cid="C"+Cid[2:]
+                    Cid2="C"+z[1]
+                    if (Cid==w.idController):#looking for w controller
+                        for j in self.links:
+                            if (j.idLink==i):#compare both lists
+                                #AcumL+=float(j.latency)
+                                AcumL=float(j.latency)
+                                print("La latencia para "+str(w.idController)+"-"+str(Cid2)+ " es: "+str(j.latency)+" ms")
+                                if (AcumL >= maxInterControllerLatency):
+                                    print("La pareja "+str(w.idController)+"-"+str(Cid2)+ " no cumple con el Constrain")
+                                    status=1
+        else:
+                for w in activecontrollers:
+                    print("La latencia Inter-controller para "+str(w.idController)+" es: "+"0"+" ms")
+                    AcumL=0
+        print("La latencia Intercontroller es: "+str(AcumL)+" ms")
+        return(status)
         
     def linkActivation(self):
         '''This function activates randomly one link 
@@ -149,8 +200,84 @@ class Network():
             self.links[index].setState(True)
             lim_inf += 3
             
+    def calculateLinks(self,zip_list,activecontrollers,ActiveControllers,galf):
+        LLinks=[]
+        #print("hola")
+        for start,target in zip_list:
+            startt='"'+start+'"'
+            targett='"'+target+'"'
+            targett= targett.replace('C', 'S')
+            for j in self.links:
+                if ((j.getsourceId()==startt) & (j.getdestinationId()==targett) & (j.getState()==True)):
+                    Providers=j.idLink
+                    Providers=Providers[0:2]
+                    LLinks.append(Providers+str(start.lstrip('S'))+"_"+str(target.lstrip('C'))) #Sacarlo de For si hay problemas en Providers
+            
+            #x=randint(0,2)
+            if (galf==0):
+                for controller in activecontrollers:
+                    if (controller.idController==target):
+                        #print(t.idController)
+                        keeperC=controller
+                        p=start.lstrip('S')
+                        p=int(p)
+                        keeperC.addControlledSW(self.switches[p])
+                    
+        IntercontrollerCostLC = 0;
+        List_IntercotrollerCost = []
+        Holder = len(ActiveControllers)
+        #Providers=["LC","LM","LT"]
+        if (Holder > 1):
+            print("We have Length: " + str(Holder))
+            List_IntercotrollerCost = []
+            New=()
+            SelfSC=[]
+            for w in range(Holder):
+                for y in ActiveControllers:
+                    flag=0
+                    if(str(ActiveControllers[w].lstrip('C')) != str(y.lstrip('C'))):#cambiar esta linea cuando se cambie el formato
+                        
+                        #x=randint(0,2)
+                        r=str(ActiveControllers[w].lstrip('C'))
+                        t=str(y.lstrip('C'))
+                        startt='"S'+r+'"'
+                        targett='"S'+t+'"'
+                        #targett= targett.replace('C', 'S')
+                        for j in self.links:
+                            if ((j.getsourceId()==startt) & (j.getdestinationId()==targett) & (j.getState()==True)):
+                                Providers=j.idLink
+                                Providers=Providers[0:2]
+                        
+                        New=(r,t)
+                        SelfSC.append(New)
+                        #It is Needed to know which links were connected to skip inverse
+                        for u,v in SelfSC:
+                            if ((u==t) & (v==r)):
+                                flag=1
+                        if (flag==0):        
+                            List_IntercotrollerCost.append(Providers+str(ActiveControllers[w].lstrip('C'))+"_"+str(y.lstrip('C')))
+                            New=(t,r)
+                            SelfSC.append(New)
+                            flag=0
+            #print(*List_IntercotrollerCost) #descomentar para ver la lista de links-intercontrollers
+        #Now, let's calculate Link costs
+        Link_Cost=0
+        for w in LLinks:
+            for y in self.links:
+                if (y.idLink==w):
+                    #print("encontrado"+str(y.idLink)+str(y.price))
+                    Link_Cost+=y.price
+         
+        #We have to calculate Intercontroller Cost (Links)
+        #We got active controller in ActiveControllers variable, let's Do it
+        IntercontrollerCostLC = 0
+        for w in List_IntercotrollerCost:
+            for y in self.links:
+                if (y.idLink==w):
+                    IntercontrollerCostLC+=y.price
+        return (LLinks,List_IntercotrollerCost,Link_Cost,IntercontrollerCostLC)         
     #def randomSolution(self, p_controllers,maxFlowSetupLatency, maxInterControllerLatency):
-    def randomSolution(self, p_controllers,maxFlowSetupLatency,maxInterControllerLatency): 
+    def randomSolution(self, p_controllers,maxFlowSetupLatency,maxInterControllerLatency,status): 
         SDNisValid = False
         #1.Activate controllers
         #1.1 Activa controllers randomly
@@ -213,116 +340,14 @@ class Network():
         
         #Regarding the match done by zip_list, addition from each link is required
         LLinks=[]
-        Providers=["LC","LM","LT"]
-        for start,target in zip_list:
-            x=randint(0,2)
-            LLinks.append(Providers[x]+str(start.lstrip('S'))+"_"+str(target.lstrip('C'))) #var = "LC"+str(start.lstrip('S'))+'_'+str(target.lstrip('C'))
-            for controller in activecontrollers:
-                if (controller.idController==target):
-                    #print(t.idController)
-                    keeperC=controller
-                    p=start.lstrip('S')
-                    p=int(p)
-                    keeperC.addControlledSW(self.switches[p])
-           
+        galf=0
+        LLinks,List_IntercotrollerCost,Link_Cost,IntercontrollerCostLC=mynet.calculateLinks(zip_list,activecontrollers,ActiveControllers,galf)         
         print(LLinks) #Descomentar para ver la asignación Controller-Switch
-        Link_Cost=0
-        for w in LLinks:
-            for y in self.links:
-                if (y.idLink==w):
-                    #print("encontrado"+str(y.idLink)+str(y.price))
-                    Link_Cost+=y.price
-                    
-        #2.3 We have to calculate Intercontroller Cost
-        #We got active controller in ActiveControllers variable, let's Do it
-        IntercontrollerCostLC = 0;
-        List_IntercotrollerCost = []
-        Holder = len(ActiveControllers)
-        if (Holder > 1):
-            print("We have Length: " + str(Holder))
-            List_IntercotrollerCost = []
-            New=()
-            SelfSC=[]
-            for w in range(Holder):
-                for y in ActiveControllers:
-                    flag=0
-                    if(str(ActiveControllers[w].lstrip('C')) != str(y.lstrip('C'))):#cambiar esta linea cuando se cambie el formato
-                        x=randint(0,2)
-                        r=str(ActiveControllers[w].lstrip('C'))
-                        t=str(y.lstrip('C'))
-                        New=(r,t)
-                        SelfSC.append(New)
-                        #It is Needed to know which links were connected to skip inverse
-                        for u,v in SelfSC:
-                            if ((u==t) & (v==r)):
-                                flag=1
-                        if (flag==0):        
-                            List_IntercotrollerCost.append(Providers[x]+str(ActiveControllers[w].lstrip('C'))+"_"+str(y.lstrip('C')))
-                            New=(t,r)
-                            SelfSC.append(New)
-                            flag=0
-            #print(*List_IntercotrollerCost) #descomentar para ver la lista de links-intercontrollers
-            for w in List_IntercotrollerCost:
-                for y in self.links:
-                    if (y.idLink==w):
-                        IntercontrollerCostLC+=y.price
         
         #2.4 To know latency by each Controller and Processing Delay
-        status=0
-        for w in activecontrollers:#Go for every Controller to look for Latency in each Link
-            AcumL=0
-            for i in LLinks:#Go for each element in the list
-                z=i.split('_')#Split by "_"
-                Cid="C"+z[1]
-                Cid2=z[0]
-                Cid2="S"+Cid2[2:]
-                if (Cid==w.idController):#looking for w controller
-                    for j in self.links:
-                        if (j.idLink==i):#compare both lists
-                            AcumT=0
-                            #AcumL+=float(j.latency)
-                            AcumL=float(j.latency)
-                            AcumL=AcumL*2
-                            #print("La latencia para "+str(w.idController)+"-"+str(Cid2)+ " (x2) es: "+str(j.latency)+" ms")
-                            AcumT=AcumL+w.getTotalProcessingDelay()
-                            print("2L + P para "+str(w.idController)+"-"+str(Cid2)+ " es: "+str(AcumT)+" ms")
-                            if (AcumT >= maxFlowSetupLatency):
-                                print("La pareja "+str(w.idController)+"-"+str(Cid2)+ " no cumple con el Constrain")
-                                status=1
-            #AcumL=AcumL*2
-            #AcumT=AcumT+AcumL+w.getTotalProcessingDelay()
-            #print("La latencia para "+str(w.idController)+" (x2) es: "+str(AcumL)+" ms")
-            #print("El processing Delay para "+str(w.idController)+" es: "+str(w.getTotalProcessingDelay())+" ms")
-        #print("La latencia + Processing Delay de la solución es: " + str(AcumT))  
-        #2.5 Max. Latency Intercontroller (Constrain)
-        print("\n"+"Latencia Inter-Controller")
-        if (len(activecontrollers) > 1):
-            print(*List_IntercotrollerCost) #keep in mind for intercontroller Latency
-            AcumL=0
-            for w in activecontrollers[:-1]:#Go for every Controller to look for Latency in each Link
-                #AcumL=0
-                for i in List_IntercotrollerCost:#Go for each element in the list
-                    z=i.split('_')#Split by "_"
-                    Cid=z[0]
-                    Cid="C"+Cid[2:]
-                    Cid2="C"+z[1]
-                    if (Cid==w.idController):#looking for w controller
-                        for j in self.links:
-                            if (j.idLink==i):#compare both lists
-                                #AcumL+=float(j.latency)
-                                AcumL=float(j.latency)
-                                print("La latencia para "+str(w.idController)+"-"+str(Cid2)+ " es: "+str(j.latency)+" ms")
-                                if (AcumL >= maxInterControllerLatency):
-                                    print("La pareja "+str(w.idController)+"-"+str(Cid2)+ " no cumple con el Constrain")
-                                    status=1
-        else:
-                for w in activecontrollers:
-                    print("La latencia Inter-controller para "+str(w.idController)+" es: "+"0"+" ms")
-                    AcumL=0
-        print("La latencia Intercontroller es: "+str(AcumL)+" ms")
-        
+        status=mynet.calculateLP(activecontrollers,LLinks,List_IntercotrollerCost,maxFlowSetupLatency,maxInterControllerLatency,status)       
         #return (Link_Cost,IntercontrollerCostLC)
-        return (Link_Cost,IntercontrollerCostLC,LLinks,List_IntercotrollerCost,status)
+        return (Link_Cost,IntercontrollerCostLC,zip_list,LLinks,List_IntercotrollerCost,status)
     
     def changeController(self,LLinks,List_IntercotrollerCost,maxFlowSetupLatency,maxInterControllerLatency,status):
         activecontrollers=[]
@@ -336,7 +361,8 @@ class Network():
                 
         #for controller in unActiveControllers:            
             #print(controller.idController)
-        
+        copyLLinks=LLinks    
+        copyList_IntercotrollerCost=List_IntercotrollerCost
         #let's choose one active controller randomly from active controller list         
         lnt=len(activecontrollers)
         valueActive=randint(0,lnt-1)
@@ -387,6 +413,9 @@ class Network():
         #To activate the old Controller and activate the new, Calculate 
         mynet.chController(int(OriValue),int(NewValue))
         
+        status=mynet.calculateLP(activecontrollers,LLinks,List_IntercotrollerCost,maxFlowSetupLatency,maxInterControllerLatency,status)
+        print("Este es el valor de status "+str(status))
+        
         #Now, let's know Latency inter-controller and LS-C
         #Fisrt at all, we need to update new intercontroller acive list
         activecontrollers=[]
@@ -397,59 +426,62 @@ class Network():
                 activecontrollers.append(controller)
             else:
                 unActiveControllers.append(controller)
-        
-        
-        #To know latency by each Controller and Processing Delay
-        status=0
-        for w in activecontrollers:#Go for every Controller to look for Latency in each Link
-            AcumL=0
-            for i in LLinks:#Go for each element in the list
-                z=i.split('_')#Split by "_"
-                Cid="C"+z[1]
-                Cid2=z[0]
-                Cid2="S"+Cid2[2:]
-                if (Cid==w.idController):#looking for w controller
-                    for j in self.links:
-                        if (j.idLink==i):#compare both lists
-                            AcumT=0
-                            #AcumL+=float(j.latency)
-                            AcumL=float(j.latency)
-                            AcumL=AcumL*2
-                            #print("La latencia para "+str(w.idController)+"-"+str(Cid2)+ " (x2) es: "+str(j.latency)+" ms")
-                            AcumT=AcumL+w.getTotalProcessingDelay()
-                            print("2L + P para "+str(w.idController)+"-"+str(Cid2)+ " es: "+str(AcumT)+" ms")
-                            if (AcumT >= maxFlowSetupLatency):
-                                print("La pareja "+str(w.idController)+"-"+str(Cid2)+ " no cumple con el Constrain")
-                                status=1
- 
-        #2.5 Max. Latency Intercontroller (Constrain)
-        print("\n"+"Latencia Inter-Controller")
-        if (len(activecontrollers) > 1):
-            print(*List_IntercotrollerCost) #keep in mind for intercontroller Latency
-            AcumL=0
-            for w in activecontrollers[:-1]:#Go for every Controller to look for Latency in each Link
-                #AcumL=0
-                for i in List_IntercotrollerCost:#Go for each element in the list
-                    z=i.split('_')#Split by "_"
-                    Cid=z[0]
-                    Cid="C"+Cid[2:]
-                    Cid2="C"+z[1]
-                    if (Cid==w.idController):#looking for w controller
-                        for j in self.links:
-                            if (j.idLink==i):#compare both lists
-                                #AcumL+=float(j.latency)
-                                AcumL=float(j.latency)
-                                print("La latencia para "+str(w.idController)+"-"+str(Cid2)+ " es: "+str(j.latency)+" ms")
-                                if (AcumL >= maxInterControllerLatency):
-                                    print("La pareja "+str(w.idController)+"-"+str(Cid2)+ " no cumple con el Constrain")
-                                    status=1
-        else:
-                for w in activecontrollers:
-                    print("La latencia Inter-controller para "+str(w.idController)+" es: "+"0"+" ms")
-                    AcumL=0
-        print("La latencia Intercontroller es: "+str(AcumL)+" ms")
-        
+               
         #We need to check status value, due to we did change, so we have to revert it
+        if status==1:
+            LLinks=copyLLinks    
+            List_IntercotrollerCost=copyList_IntercotrollerCost   
+            mynet.chController(int(NewValue),int(OriValue))
+
+    def changeLinks(self,zip_list,LLinks,List_IntercotrollerCost,maxFlowSetupLatency,maxInterControllerLatency,status):
+        
+        activecontrollers=[]
+        unActiveControllers=[]
+        copyLLinks=LLinks    
+        copyList_IntercotrollerCost=List_IntercotrollerCost
+        List_IntercotrollerCost=[]
+        for controller in self.controllers:
+            #print(controller)
+            if(controller.getState()==True):
+                activecontrollers.append(controller)
+            else:
+                unActiveControllers.append(controller)
+        
+        #To change links state
+        lim_inf = 0        
+        while(lim_inf < len(self.links)-3):
+            hlp=lim_inf
+            if(uniform(0, 1)<0.5):
+                #print("entro en :" + str(hlp)+"<"+str(len(self.links)-3))
+                for i in list(range(3)):
+                    if (i > 0):#print (i)
+                        hlp=hlp+1
+                    self.links[hlp].setState(False)
+                    #print(self.links[hlp].idLink)
+                    #print(hlp)
+                index = randint(lim_inf,lim_inf+2)
+                #print(index)
+                self.links[index].setState(True)
+            lim_inf=lim_inf+ 3
+        
+        ActiveControllers=[]
+        for controller in self.controllers:
+            if(controller.getState()==True):
+                ActiveControllers.append(controller.idController) 
+        
+#        for j in self.links:
+#            if (j.getState()==True):
+#                print(j.idLink)
+        galf=1        
+        LLinks,List_IntercotrollerCost,Link_Cost,IntercontrollerCostLC=mynet.calculateLinks(zip_list,activecontrollers,ActiveControllers,galf)
+        print("Asignación C-S")
+        print(LLinks)
+        print("Intercontroller List")
+        print(*List_IntercotrollerCost)  
+        status=mynet.calculateLP(activecontrollers,LLinks,List_IntercotrollerCost,maxFlowSetupLatency,maxInterControllerLatency,status)
+                           
+        print("La Sumatoria de Links para L(C/M/T) es: " + str(Link_Cost))
+        print("El costo Inter-controladores para L(C/M/T) es: " + str(IntercontrollerCostLC))
         
 class Link():
     def __init__(self,idLink, latency, price, carrierId, sourceId , destinationId):
@@ -467,8 +499,13 @@ class Link():
     def getPrice(self):
         return self.price
 
-    def getidLink(self):
-        return self.idLink
+    def getsourceId(self):
+        #print(self.sourceId)
+        return self.sourceId
+    
+    def getdestinationId(self):
+        #print(self.destinationId)
+        return self.destinationId    
 
     def getState(self):
         return self.state
@@ -542,9 +579,9 @@ cont=0
 while(status>0):
     cont+=1
     if (cont == 1):
-        x,y,LLinks,List_IntercotrollerCost,status=mynet.randomSolution(0.2 , 80, 100)
+        x,y,zip_list,LLinks,List_IntercotrollerCost,status=mynet.randomSolution(0.2 , 80, 100,status)
         print("La Sumatoria de Links para L(C/M/T) es: " + str(x))
-        print("El costo Inter-controladores para LC es: " + str(y))
+        print("El costo Inter-controladores para L(C/M/T) es: " + str(y))
         #mynet.randomSolution(0.2)
         z=mynet.calculateControllerCost()
         print("El costo por controladores es: " + str(z))
@@ -554,9 +591,9 @@ while(status>0):
         #To clean Objects in mynet
         for x in range(0,len(Ctrs)):
             mynet.eraseInfoController(x)
-        x,y,LLinks,List_IntercotrollerCost,status=mynet.randomSolution(0.1 , 80, 100)
+        x,y,zip_list,LLinks,List_IntercotrollerCost,status=mynet.randomSolution(0.1 , 80, 100,status)
         print("La Sumatoria de Links para L(C/M/T) es: " + str(x))
-        print("El costo Inter-controladores para LC es: " + str(y))
+        print("El costo Inter-controladores para L(C/M/T) es: " + str(y))
         #mynet.randomSolution(0.2)
         z=mynet.calculateControllerCost()
         print("El costo por controladores es: " + str(z))
@@ -564,4 +601,7 @@ while(status>0):
         print("El costo para la solución es: "+str(w))
         
 #Let's change the one controller
-mynet.changeController(LLinks,List_IntercotrollerCost,80, 100,1)
+#mynet.changeController(LLinks,List_IntercotrollerCost,40, 60,1)
+
+#Now let's create change link 
+#mynet.changeLinks(zip_list,LLinks,List_IntercotrollerCost,80, 100,1)
