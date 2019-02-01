@@ -8,7 +8,22 @@ This is a temporary script file.
 from random import randint, uniform
 from itertools import cycle
 import re
+import numpy
+import numpy as np
+#import pickle
+from datetime import datetime
+import csv
+import sys
 filename = 'output.txt'
+
+
+Iterations = int(sys.argv[1])
+Mutations = int(sys.argv[2]) #0 =changelinks ; 1=changecontroller
+maxFlowSetupLatency = int(sys.argv[3])
+maxInterControllerLatency = int(sys.argv[4])
+PercentageNode = (sys.argv[5])
+PercentageNode = int(PercentageNode)/100
+MemorySize = int(sys.argv[6])
 
 zip_list = []
 class Controller():
@@ -115,7 +130,7 @@ class Network():
         #self.controllers.append(controller)
         #print(self.controllers[controller])
         self.controllers[controller].controlledSW=[]
-        self.controllers[controller].state = "False"
+        self.controllers[controller].setState(False)
         self.controllers[controller].receivedRequest = 0
         self.controllers[controller].totalProcessingDelay = 0
         #print(self.controllers[controller])
@@ -125,8 +140,19 @@ class Network():
         #print(self.controllers[controller2])
         self.controllers[controller2].controlledSW=self.controllers[controller].controlledSW
         self.controllers[controller].controlledSW=[]
-        self.controllers[controller].state = "False"
-        self.controllers[controller2].state = "True"
+        #self.controllers[controller].state = "False"
+        self.controllers[controller].setState(False)
+        self.controllers[controller2].setState(True)
+        #self.links[index].setState(True)
+        
+        ######Evaluar este cambio###################################
+        #for crl in self.controllers:
+            #print(controller)
+            #if(crl.idController==controller2):
+                #print("vamos a elemimar este"+str(controller2))
+                #crl.addControlledSW(self.switches[controller2])
+        #################Hasta aqui#################################33
+        #self.controllers[controller2].state = "True"
         self.controllers[controller].receivedRequest = 0
         self.controllers[controller].totalProcessingDelay = 0
         self.controllers[controller2].getTotalProcessingDelay()
@@ -135,8 +161,11 @@ class Network():
         
     def calculateLP(self,activecontrollers,LLinks,List_IntercotrollerCost,maxFlowSetupLatency,maxInterControllerLatency,status):
         #To know latency by each Controller and Processing Delay
+        arithmean2LP=[]
+        arithmeanIcc=[]
         status=0
         for w in activecontrollers:#Go for every Controller to look for Latency in each Link
+            #print(w.idController)
             AcumL=0
             for i in LLinks:#Go for each element in the list
                 z=i.split('_')#Split by "_"
@@ -152,11 +181,17 @@ class Network():
                             AcumL=AcumL*2
                             #print("La latencia para "+str(w.idController)+"-"+str(Cid2)+ " (x2) es: "+str(j.latency)+" ms")
                             AcumT=AcumL+w.getTotalProcessingDelay()
+                            arithmean2LP.append(AcumT)
                             print("2L + P para "+str(w.idController)+"-"+str(Cid2)+ " es: "+str(AcumT)+" ms")
                             if (AcumT >= maxFlowSetupLatency):
                                 print("La pareja "+str(w.idController)+"-"+str(Cid2)+ " no cumple con el Constrain")
                                 status=1
- 
+        #print(numpy.mean(arithmean2LP)) #Arithmetic Mean
+        mean=numpy.mean(arithmean2LP)
+        #print(np.std(arithmean2LP)) #Standar Desviation
+        stdd=np.std(arithmean2LP)
+        cV=(stdd/mean) 
+        #print(stdd/mean) #Coefficient of Variation = Standard deviation / mean 
         #2.5 Max. Latency Intercontroller (Constrain)
         print("\n"+"Latencia Inter-Controller")
         if (len(activecontrollers) > 1):
@@ -174,6 +209,7 @@ class Network():
                             if (j.idLink==i):#compare both lists
                                 #AcumL+=float(j.latency)
                                 AcumL=float(j.latency)
+                                arithmeanIcc.append(AcumL)
                                 print("La latencia para "+str(w.idController)+"-"+str(Cid2)+ " es: "+str(j.latency)+" ms")
                                 if (AcumL >= maxInterControllerLatency):
                                     print("La pareja "+str(w.idController)+"-"+str(Cid2)+ " no cumple con el Constrain")
@@ -182,8 +218,15 @@ class Network():
                 for w in activecontrollers:
                     print("La latencia Inter-controller para "+str(w.idController)+" es: "+"0"+" ms")
                     AcumL=0
+                    arithmeanIcc.append(AcumL)
         print("La latencia Intercontroller es: "+str(AcumL)+" ms")
-        return(status)
+        #print(numpy.mean(arithmeanIcc))
+        mean1=numpy.mean(arithmeanIcc)
+        #print(np.std(arithmeanIcc))
+        stdd1=np.std(arithmeanIcc)
+        cV1=(stdd1/mean1)
+        #print(stdd/mean)
+        return(status,mean,stdd,cV,mean1,stdd1,cV1)
         
     def linkActivation(self):
         '''This function activates randomly one link 
@@ -277,7 +320,7 @@ class Network():
                     IntercontrollerCostLC+=y.price
         return (LLinks,List_IntercotrollerCost,Link_Cost,IntercontrollerCostLC)         
     #def randomSolution(self, p_controllers,maxFlowSetupLatency, maxInterControllerLatency):
-    def randomSolution(self, p_controllers,maxFlowSetupLatency,maxInterControllerLatency,status): 
+    def randomSolution(self, p_controllers,maxFlowSetupLatency,maxInterControllerLatency,status,priceController): 
         SDNisValid = False
         #1.Activate controllers
         #1.1 Activa controllers randomly
@@ -345,11 +388,15 @@ class Network():
         print(LLinks) #Descomentar para ver la asignación Controller-Switch
         
         #2.4 To know latency by each Controller and Processing Delay
-        status=mynet.calculateLP(activecontrollers,LLinks,List_IntercotrollerCost,maxFlowSetupLatency,maxInterControllerLatency,status)       
+        status,mean,stdd,cV,mean1,stdd1,cV1=mynet.calculateLP(activecontrollers,LLinks,List_IntercotrollerCost,maxFlowSetupLatency,maxInterControllerLatency,status)       
         #return (Link_Cost,IntercontrollerCostLC)
-        return (Link_Cost,IntercontrollerCostLC,zip_list,LLinks,List_IntercotrollerCost,status)
+        ctlCost=mynet.calculateControllerCost()
+        solutionCost=Link_Cost+IntercontrollerCostLC+ctlCost
+        print(solutionCost)
+        return (solutionCost,zip_list,LLinks,List_IntercotrollerCost,status,mean,stdd,cV,mean1,stdd1,cV1)
     
-    def changeController(self,LLinks,List_IntercotrollerCost,maxFlowSetupLatency,maxInterControllerLatency,status):
+    def changeController(self,zip_list,LLinks,List_IntercotrollerCost,maxFlowSetupLatency,maxInterControllerLatency,status):
+        Ori_zip_list=zip_list
         activecontrollers=[]
         unActiveControllers=[]
         for controller in self.controllers:
@@ -359,6 +406,7 @@ class Network():
             else:
                 unActiveControllers.append(controller)
                 
+               
         #for controller in unActiveControllers:            
             #print(controller.idController)
         copyLLinks=LLinks    
@@ -373,49 +421,60 @@ class Network():
         valueUnactive=randint(0,lnt-1)
         print("Por este Controllador :"+unActiveControllers[valueUnactive].idController)
         NewValue=unActiveControllers[valueUnactive].idController ##Cx_new
+        Ret=NewValue
         NewValue=NewValue.lstrip('C')
-        #print(*LLinks)
-        for i in LLinks:
-            #print(i)
-            z=i.split('_')#Split by "_"
-            Cid=z[0]
-            lkn=Cid[0:2] #link
-            Swt=Cid[2:] #Switch
-            Cic=z[1] #Controller
-            #var=lkn+OriValue+"_"+OriValue
-            #print(var)
-            if (i == lkn+OriValue+"_"+OriValue): #ie. LM7_7
-                LLinks[LLinks.index(i)] = lkn+NewValue+"_"+NewValue
-            elif(Cic == OriValue): #i.e C7 replace x C0 (LM5_7) 
-                LLinks[LLinks.index(i)] = lkn+Swt+"_"+NewValue
-            elif((Swt == NewValue) & (Cic == OriValue)): #ie. the same C7 replace x C0 (LT0_7)
-                remove=LLinks.index(i)
-                LLinks.pop(remove)
-  
-        print(*LLinks)
-        #Now, we have to change inter-controller list
-        print("\n"+"New List controllers"+"\n")
-        #print(*List_IntercotrollerCost) #To know Inter-Controller List changed
-        for i in List_IntercotrollerCost:
-            #print(i)
-            z=i.split('_')#Split by "_"
-            Cid=z[0]
-            lkn=Cid[0:2] #link
-            Swt=Cid[2:] #Switch
-            Cic=z[1] #Controller
-            #var=lkn+OriValue+"_"+OriValue
-            #print(var)
-            if(Swt == OriValue):
-                List_IntercotrollerCost[List_IntercotrollerCost.index(i)] = lkn+NewValue+"_"+Cic
-            elif(Cic == OriValue):
-                List_IntercotrollerCost[List_IntercotrollerCost.index(i)] = lkn+Swt+"_"+NewValue    
-        print(*List_IntercotrollerCost)
-        #To activate the old Controller and activate the new, Calculate 
+        #To desactivate the old Controller and activate the new, Calculate 
         mynet.chController(int(OriValue),int(NewValue))
+        activecontrollers=[]
+        ActiveControllers=[]
+        unActiveControllers=[]
+        for controller in self.controllers:
+            #print(controller)
+            if(controller.getState()==True):
+                activecontrollers.append(controller)
+                ActiveControllers.append(controller.idController)
+            else:
+                unActiveControllers.append(controller)
         
-        status=mynet.calculateLP(activecontrollers,LLinks,List_IntercotrollerCost,maxFlowSetupLatency,maxInterControllerLatency,status)
+        
+        LLinks=[]
+        galf=1
+        ZipList2=[]
+        for controller in activecontrollers:            
+            #print(controller.idController)
+            for i in controller.controlledSW:
+                #getidSwitch(controller.controlledSW)
+                #print(i.getIdSwitch())
+                New=(i.getIdSwitch(),controller.idController)
+                ZipList2.append(New)
+            
+            if (len(ActiveControllers)>1):
+                if (Ret == controller.idController):
+                    #print("Es este"+str(controller.idController))
+                    Ret=Ret.replace('C', 'S')
+                    New=(Ret,controller.idController)
+                    ZipList2.append(New)
+                            
+        
+        LLinks,List_IntercotrollerCost,Link_Cost,IntercontrollerCostLC=mynet.calculateLinks(ZipList2,activecontrollers,ActiveControllers,galf)         
+        print(LLinks) #Descomentar para ver la asignación Controller-Switch
+        
+        #2.4 To know latency by each Controller and Processing Delay
+        status,mean,stdd,cV,mean1,stdd1,cV1=mynet.calculateLP(activecontrollers,LLinks,List_IntercotrollerCost,maxFlowSetupLatency,maxInterControllerLatency,status)       
+        #return (Link_Cost,IntercontrollerCostLC)
+        ctlCost=mynet.calculateControllerCost()
+        solutionCost=Link_Cost+IntercontrollerCostLC+ctlCost
+
+        
+        
+        #status,mean,stdd,cV,mean1,stdd1,cV1=mynet.calculateLP(activecontrollers,LLinks,List_IntercotrollerCost,maxFlowSetupLatency,maxInterControllerLatency,status)
         print("Este es el valor de status "+str(status))
+            #h=controller.idController
+            #h=h.replace('C', 'S')
+            #New=(h,controller.idController)
+            #ZipList2.append(New)    #print(i.getIdSwitch())
         
+        #print(*ZipList2)
         #Now, let's know Latency inter-controller and LS-C
         #Fisrt at all, we need to update new intercontroller acive list
         activecontrollers=[]
@@ -432,6 +491,29 @@ class Network():
             LLinks=copyLLinks    
             List_IntercotrollerCost=copyList_IntercotrollerCost   
             mynet.chController(int(NewValue),int(OriValue))
+            zip_list=Ori_zip_list
+        else:
+            zip_list=ZipList2
+            
+        Link_Cost=0
+        for w in LLinks:
+            for y in self.links:
+                if (y.idLink==w):
+                    #print("encontrado"+str(y.idLink)+str(y.price))
+                    Link_Cost+=y.price
+         
+        #We have to calculate Intercontroller Cost (Links)
+        #We got active controller in ActiveControllers variable, let's Do it
+        IntercontrollerCostLC = 0
+        for w in List_IntercotrollerCost:
+            for y in self.links:
+                if (y.idLink==w):
+                    IntercontrollerCostLC+=y.price    
+        ctlCost=mynet.calculateControllerCost()
+        solutionCost=Link_Cost+IntercontrollerCostLC+ctlCost
+        print(solutionCost)
+        return (solutionCost,zip_list,LLinks,List_IntercotrollerCost,status,mean,stdd,cV,mean1,stdd1,cV1)
+        #debo retornar Llinks,intercontroller
 
     def changeLinks(self,zip_list,LLinks,List_IntercotrollerCost,maxFlowSetupLatency,maxInterControllerLatency,status):
         
@@ -472,16 +554,21 @@ class Network():
 #        for j in self.links:
 #            if (j.getState()==True):
 #                print(j.idLink)
-        galf=1        
+        galf=1
+        print(zip_list)        
         LLinks,List_IntercotrollerCost,Link_Cost,IntercontrollerCostLC=mynet.calculateLinks(zip_list,activecontrollers,ActiveControllers,galf)
         print("Asignación C-S")
         print(LLinks)
         print("Intercontroller List")
         print(*List_IntercotrollerCost)  
-        status=mynet.calculateLP(activecontrollers,LLinks,List_IntercotrollerCost,maxFlowSetupLatency,maxInterControllerLatency,status)
-                           
-        print("La Sumatoria de Links para L(C/M/T) es: " + str(Link_Cost))
-        print("El costo Inter-controladores para L(C/M/T) es: " + str(IntercontrollerCostLC))
+        status,mean,stdd,cV,mean1,stdd1,cV1=mynet.calculateLP(activecontrollers,LLinks,List_IntercotrollerCost,maxFlowSetupLatency,maxInterControllerLatency,status)
+        
+        ctlCost=mynet.calculateControllerCost()
+        solutionCost=Link_Cost+IntercontrollerCostLC+ctlCost
+        print(solutionCost)
+        return (solutionCost,zip_list,LLinks,List_IntercotrollerCost,status,mean,stdd,cV,mean1,stdd1,cV1)                   
+        #print("La Sumatoria de Links para L(C/M/T) es: " + str(Link_Cost))
+        #print("El costo Inter-controladores para L(C/M/T) es: " + str(IntercontrollerCostLC))
         
 class Link():
     def __init__(self,idLink, latency, price, carrierId, sourceId , destinationId):
@@ -515,7 +602,7 @@ class Link():
 
 ##MyNet
 mynet = Network()
-priceController=200
+priceController=100
 #To read the file and import the objects
 with open(filename) as f:
    # Read the file contents and generate a list with each line
@@ -576,32 +663,160 @@ print(str(mynet.calculateTotalCost()))
 #print("El valor: " + str(mynet.randomSolution(0.2)))
 status=1
 cont=0
+IterLsv=10
+LSVList=[]
+TabuList=[]
+fh=open("MsTabu.txt","w")#Comment to do test in comparation wheather solution exist
+fh.close()
 while(status>0):
     cont+=1
     if (cont == 1):
-        x,y,zip_list,LLinks,List_IntercotrollerCost,status=mynet.randomSolution(0.2 , 80, 100,status)
-        print("La Sumatoria de Links para L(C/M/T) es: " + str(x))
-        print("El costo Inter-controladores para L(C/M/T) es: " + str(y))
-        #mynet.randomSolution(0.2)
-        z=mynet.calculateControllerCost()
-        print("El costo por controladores es: " + str(z))
-        w=x+y+z
-        print("El costo para la solución es: "+str(w))
+        solutionCost,zip_list,LLinks,List_IntercotrollerCost,status,mean,stdd,cV,mean1,stdd1,cV1=mynet.randomSolution(PercentageNode,maxFlowSetupLatency,maxInterControllerLatency,status,priceController)
+        
     else:
         #To clean Objects in mynet
         for x in range(0,len(Ctrs)):
             mynet.eraseInfoController(x)
-        x,y,zip_list,LLinks,List_IntercotrollerCost,status=mynet.randomSolution(0.1 , 80, 100,status)
-        print("La Sumatoria de Links para L(C/M/T) es: " + str(x))
-        print("El costo Inter-controladores para L(C/M/T) es: " + str(y))
-        #mynet.randomSolution(0.2)
-        z=mynet.calculateControllerCost()
-        print("El costo por controladores es: " + str(z))
-        w=x+y+z
-        print("El costo para la solución es: "+str(w))
-        
-#Let's change the one controller
-#mynet.changeController(LLinks,List_IntercotrollerCost,40, 60,1)
+        solutionCost,zip_list,LLinks,List_IntercotrollerCost,status,mean,stdd,cV,mean1,stdd1,cV1=mynet.randomSolution(PercentageNode,maxFlowSetupLatency,maxInterControllerLatency,status,priceController)
+        #break
+print("El costo para la solución es: "+str(solutionCost))
+print("El Media Arit. 2LP es: "+str(mean))
+print("El Desviación Est. 2LP es: "+str(stdd))
+print("El Coeficiente de Vari. 2LP es: "+str(cV))
+print("El Media Arit. ICC es: "+str(mean1))
+print("El Desviación Est. ICC es: "+str(stdd1))
+print("El Coeficiente de Vari. ICC es: "+str(cV1))
+#fh=open("MsTabu.txt","a+")
+#fh.write('Iteración;Costo Solución;Media Arti. 2LP;Desviación Est. 2LP;Coeficiente Vari. 2LP;Media Arti. ICC;'+'Desviación Est. ICC;Coeficiente Vari. ICC'+';'+'ZipList'+';'+'IccList'+'\n') 
+#fh.write(str(cont)+';'+str(solutionCost)+';'+str(mean)+';'+str(stdd)+';'+str(cV)+';'+str(mean1)+';'+str(stdd1)+';'+str(cV1)+';'+str(LLinks)+';'+str(List_IntercotrollerCost)+'\n')
+#fh.close()
 
-#Now let's create change link 
-#mynet.changeLinks(zip_list,LLinks,List_IntercotrollerCost,80, 100,1)
+####################Para pruebas############################################
+#for i in range(2):
+#    solutionCost,zip_list,LLinks,List_IntercotrollerCost,status,mean,stdd,cV,mean1,stdd1,cV1=mynet.changeController(zip_list,LLinks,List_IntercotrollerCost,80, 100,1)
+#    print("El costo para la solución es: "+str(solutionCost))
+#    print("El Media Arit. 2LP es: "+str(mean))
+#    print("El Desviación Est. 2LP es: "+str(stdd))
+#    print("El Coeficiente de Vari. 2LP es: "+str(cV))
+#    print("El Media Arit. ICC es: "+str(mean1))
+#    print("El Desviación Est. ICC es: "+str(stdd1))
+#    print("El Coeficiente de Vari. ICC es: "+str(cV1))
+#    
+#    solutionCost,zip_list,LLinks,List_IntercotrollerCost,status,mean,stdd,cV,mean1,stdd1,cV1=mynet.changeLinks(zip_list,LLinks,List_IntercotrollerCost,80, 100,1)
+#    print("El costo para la solución es: "+str(solutionCost))
+#    print("El Media Arit. 2LP es: "+str(mean))
+#    print("El Desviación Est. 2LP es: "+str(stdd))
+#    print("El Coeficiente de Vari. 2LP es: "+str(cV))
+#    print("El Media Arit. ICC es: "+str(mean1))
+#    print("El Desviación Est. ICC es: "+str(stdd1))
+#    print("El Coeficiente de Vari. ICC es: "+str(cV1))
+
+
+##############################
+
+###########################DE aqui para abajo quitar comentarios##############################
+#
+tstart = datetime.now()
+######################LSV searching###############
+fh=open("LSVSolutions.txt","w")
+fh.close()
+for t in range(Iterations): 
+    fh=open("LSVSolutions.txt","w")
+    for i in range(IterLsv):
+        if (Mutations == 0):
+            solutionCost,zip_list,LLinks,List_IntercotrollerCost,status,mean,stdd,cV,mean1,stdd1,cV1=mynet.changeLinks(zip_list,LLinks,List_IntercotrollerCost,maxFlowSetupLatency,maxInterControllerLatency,1)
+        else:
+            solutionCost,zip_list,LLinks,List_IntercotrollerCost,status,mean,stdd,cV,mean1,stdd1,cV1=mynet.changeController(zip_list,LLinks,List_IntercotrollerCost,maxFlowSetupLatency,maxInterControllerLatency,1)
+        if (status == 0):
+            fh.write(str(solutionCost)+';'+str(mean)+';'+str(stdd)+';'+str(cV)+';'+str(mean1)+';'+str(stdd1)+';'+str(cV1)+';'+str(LLinks)+';'+str(List_IntercotrollerCost)+'\n')
+    fh.close()
+    ####################### To Generate LSV################################## 
+    with open("LSVSolutions.txt") as f:
+    #Read the file contents and generate a list with each line
+        lines = f.readlines()
+    LSVlist=[]
+    f = open("LSVSolutions.txt")
+    from operator import itemgetter
+    reader = csv.reader(f, delimiter="\t")
+    ######### To Get the best LSV########################## 
+    for line in sorted(reader, key=itemgetter(0)):
+        LSVlist.append(line)
+        #print(line)
+    f.close()
+    #print(LSVlist[0]) #the best solution
+    
+    ######## We have to compare the Best LSV to check wheather this exists in Tabu_List
+    with open("MsTabu.txt") as f:
+    #Read the file contents and generate a list with each line
+        contents=f.readlines()#.splitlines("\n")
+    f.close()
+    ###### to Erase new line###########
+    for i in contents:
+        TabuList.append(i.strip("\n"))    
+    print("Let's go to compare Tabu List")
+    #print(TabuList)
+    Flag=0
+    for w in range(0,len(LSVlist)):
+        #print(w)
+        for i in TabuList:
+            #print(TabuList[0])
+            k='["'+str(i)+'"]'
+            #k=str(i)
+            print(k)
+            #for j in LSVlist:
+            j=str(LSVlist[w])
+            #j=str(LSVlist[w])
+            print(j)
+            #print(bool(set(i).intersection(j)))
+            #Check=bool(set(i).intersection(j)) 
+            #if (bool(set(i).intersection(j)) == False):
+            if (k == j):
+                #print("iguales")
+                Flag=1
+        if (Flag==0):
+            print("Escribir esta sln en TbuList")    
+            fh=open("MsTabu.txt","a+")#Comment to do test in comparation wheather solution exist
+            fh.write(str(LSVlist[w])+'\n')
+            fh.close()
+            break
+            
+            #Escribir la solución en el archivo Tabú aquí
+
+    ################## To know wheather Tabu List reached Maximum ###############333
+    with open("MsTabu.txt") as f:
+        LongTabu=len(list(f))
+    f.close()   
+    ##################### if TabuList > Maximum###################################
+    if (int(LongTabu) > MemorySize):
+        #print("Longitud es" + str(LongTabu))
+        
+#        with open("MsTabu.txt") as f:
+#        #Read the file contents and generate a list with each line
+#            lines = f.readlines()
+#        
+        LSVlist=[]
+        f = open("MsTabu.txt")
+        from operator import itemgetter
+        reader = csv.reader(f, delimiter="\t")
+        ######### To Get the best LSV########################## 
+        for line in sorted(reader, key=itemgetter(0)):
+            LSVlist.append(*line)
+            #print(*line)
+        f.close()
+        ###### to Erase new line###########
+        #TabuList=[]
+        #for i in LSVlist:
+            #TabuList.append(i.strip("\"))
+        #print(i)
+        fh=open("MsTabu.txt","w")#Comment to do test in comparation wheather solution exist
+        fh.close()
+    
+        fh=open("MsTabu.txt","a+")#Comment to do test in comparation wheather solution exist
+        for i in range(0,11):
+            fh.write(str(LSVlist[i])+'\n')
+        fh.close()     
+    
+#LSVlist[0]
+#################### To get time spent################################
+tend = datetime.now()
+print (tend - tstart)
