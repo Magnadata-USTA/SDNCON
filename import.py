@@ -15,7 +15,7 @@ from collections import defaultdict
 #from pprint import pprint
 from random import randint
 
-data_from_file=open('/home/riac/Scripts/newAtmnet.txt', 'r').read()
+data_from_file=open('newAtmnet.txt', 'r').read()
 
 def transform_to_my_format(data):
     d = defaultdict(dict)
@@ -63,23 +63,19 @@ def dijkstra_latency(start,goal):
             break
     path.insert(0,start)
     if shortest_distance[goal] != infinity:
-        dj2=float(shortest_distance[goal])*1.05 #Latencia +/- 10
-        dj3=float(shortest_distance[goal])*1.1 #Price +/- 20 Verificar ojooo
+        dj2=float(shortest_distance[goal])*1.1 #Latencia +/- 10
+        dj3=float(shortest_distance[goal])*1.2 #Price +/- 20 Verificar ojooo
         f= open("output.txt","a+")
-        if (start!=goal):
-            f.write('LC'+start+'_'+goal+'='+'Link('+'"LC'+start+'_'+goal+'",'+str(shortest_distance[goal])+','+'100'+',"Claro",'+'"S'+start+'",'+'"S'+goal+'")'+ "\n")
-            f.write('mynet.addLink(LC'+start+'_'+goal+')'+ "\n")
-            f.write('LM'+start+'_'+goal+'='+'Link('+'"LM'+start+'_'+goal+'",'+str(dj2)+','+'80'+',"Movistar",'+'"S'+start+'",'+'"S'+goal+'")'+ "\n")
-            f.write('mynet.addLink(LM'+start+'_'+goal+')'+ "\n")
-            f.write('LT'+start+'_'+goal+'='+'Link('+'"LT'+start+'_'+goal+'",'+str(dj3)+','+'70'+',"Tigo",'+'"S'+start+'",'+'"S'+goal+'")'+ "\n")
-            f.write('mynet.addLink(LT'+start+'_'+goal+')'+ "\n")
+        if (int(start) != int(goal)):
+            f.write('LC'+start+'_'+goal+','+'"LC'+start+'_'+goal+'",'+str(shortest_distance[goal])+','+'100'+',"Claro",'+'"S'+start+'",'+'"S'+goal+'"'+ "\n")
+            f.write('LM'+start+'_'+goal+','+'"LM'+start+'_'+goal+'",'+str(dj2)+','+'75'+',"Movistar",'+'"S'+start+'",'+'"S'+goal+'"'+ "\n")
+            f.write('LT'+start+'_'+goal+','+'"LT'+start+'_'+goal+'",'+str(dj3)+','+'60'+',"Tigo",'+'"S'+start+'",'+'"S'+goal+'"'+ "\n")
+            #f.write('mynet.addLink(LT'+start+'_'+goal+')'+ "\n")
         else:
-            f.write('LC'+start+'_'+goal+'='+'Link('+'"LC'+start+'_'+goal+'",'+str(shortest_distance[goal])+','+'0'+',"Claro",'+'"S'+start+'",'+'"S'+goal+'")'+ "\n")
-            f.write('mynet.addLink(LC'+start+'_'+goal+')'+ "\n")
-            f.write('LM'+start+'_'+goal+'='+'Link('+'"LM'+start+'_'+goal+'",'+str(dj2)+','+'0'+',"Movistar",'+'"S'+start+'",'+'"S'+goal+'")'+ "\n")
-            f.write('mynet.addLink(LM'+start+'_'+goal+')'+ "\n")
-            f.write('LT'+start+'_'+goal+'='+'Link('+'"LT'+start+'_'+goal+'",'+str(dj3)+','+'0'+',"Tigo",'+'"S'+start+'",'+'"S'+goal+'")'+ "\n")
-            f.write('mynet.addLink(LT'+start+'_'+goal+')'+ "\n")
+            f.write('LC'+start+'_'+goal+','+'"LC'+start+'_'+goal+'",'+str(shortest_distance[goal])+','+'0'+',"Claro",'+'"S'+start+'",'+'"S'+goal+'"'+ "\n")
+            f.write('LM'+start+'_'+goal+','+'"LM'+start+'_'+goal+'",'+str(dj2)+','+'0'+',"Movistar",'+'"S'+start+'",'+'"S'+goal+'"'+ "\n")
+            f.write('LT'+start+'_'+goal+','+'"LT'+start+'_'+goal+'",'+str(dj3)+','+'0'+',"Tigo",'+'"S'+start+'",'+'"S'+goal+'"'+ "\n")
+            #f.write('mynet.addLink(LT'+start+'_'+goal+')'+ "\n")
             
         f.close()
 
@@ -93,27 +89,18 @@ for i in range(max): #este es el for - source
 ########Imprimir 2do Rquerimiento################
 
 max=(len(Graph_Lat))
-f= open("output.txt","a+")
-for i in range(10):
-    f.write("\n")
-f.close()
+
 for i in range(max): #este es el for - source
     f= open("output.txt","a+")
-    f.write('C'+str(i)+' = Controller("C'+str(i)+'", "S'+str(i)+'",  priceController, False)'+"\n")
-    f.write('mynet.addController(C'+str(i)+')'+"\n")
+    f.write('C'+str(i)+',S'+str(i)+',priceController,False'+"\n")
     f.close()
 
 
 #Switch creation and aggregation
-f= open("output.txt","a+")
-for i in range(10):
-    f.write("\n")
-f.close()
 for i in range(max): #este es el for - source
     f= open("output.txt","a+")
     #f.write('S'+str(i)+' = Switch("S'+str(i)+'", '+str(randint(10000,500000))+', "C'+str(i)+'", '+str(randint(2,10))+')'+"\n")
-    f.write('S'+str(i)+' = Switch("S'+str(i)+'", '+str(randint(10000,500000))+', '+str(randint(2,10))+')'+"\n")
-    f.write('mynet.addSwitch(S'+str(i)+')'+"\n")
+    f.write('S'+str(i)+','+str(randint(10000,500000))+','+str(randint(2,10))+"\n")
     f.close()
 
 #S0 = Switch("S0", randint(10000,500000), "C0", randint(2,10))
