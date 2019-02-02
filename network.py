@@ -24,6 +24,7 @@ maxInterControllerLatency = int(sys.argv[4])
 PercentageNode = (sys.argv[5])
 PercentageNode = int(PercentageNode)/100
 MemorySize = int(sys.argv[6])
+LRQ = int(sys.argv[7])
 
 zip_list = []
 class Controller():
@@ -666,7 +667,7 @@ cont=0
 IterLsv=10
 LSVList=[]
 TabuList=[]
-fh=open("MsTabu.txt","w")#Comment to do test in comparation wheather solution exist
+fh=open("MsTabu"+str(LRQ)+".txt","w")#Comment to do test in comparation wheather solution exist
 fh.close()
 while(status>0):
     cont+=1
@@ -746,7 +747,7 @@ for t in range(Iterations):
     #print(LSVlist[0]) #the best solution
     
     ######## We have to compare the Best LSV to check wheather this exists in Tabu_List
-    with open("MsTabu.txt") as f:
+    with open("MsTabu"+str(LRQ)+".txt") as f:
     #Read the file contents and generate a list with each line
         contents=f.readlines()#.splitlines("\n")
     f.close()
@@ -775,7 +776,7 @@ for t in range(Iterations):
                 Flag=1
         if (Flag==0):
             print("Escribir esta sln en TbuList")    
-            fh=open("MsTabu.txt","a+")#Comment to do test in comparation wheather solution exist
+            fh=open("MsTabu"+str(LRQ)+".txt","a+")#Comment to do test in comparation wheather solution exist
             fh.write(str(LSVlist[w])+'\n')
             fh.close()
             break
@@ -783,7 +784,7 @@ for t in range(Iterations):
             #Escribir la solución en el archivo Tabú aquí
 
     ################## To know wheather Tabu List reached Maximum ###############333
-    with open("MsTabu.txt") as f:
+    with open("MsTabu"+str(LRQ)+".txt") as f:
         LongTabu=len(list(f))
     f.close()   
     ##################### if TabuList > Maximum###################################
@@ -795,7 +796,7 @@ for t in range(Iterations):
 #            lines = f.readlines()
 #        
         LSVlist=[]
-        f = open("MsTabu.txt")
+        f = open("MsTabu"+str(LRQ)+".txt")
         from operator import itemgetter
         reader = csv.reader(f, delimiter="\t")
         ######### To Get the best LSV########################## 
@@ -808,10 +809,10 @@ for t in range(Iterations):
         #for i in LSVlist:
             #TabuList.append(i.strip("\"))
         #print(i)
-        fh=open("MsTabu.txt","w")#Comment to do test in comparation wheather solution exist
+        fh=open("MsTabu"+str(LRQ)+".txt","w")#Comment to do test in comparation wheather solution exist
         fh.close()
     
-        fh=open("MsTabu.txt","a+")#Comment to do test in comparation wheather solution exist
+        fh=open("MsTabu"+str(LRQ)+".txt","a+")#Comment to do test in comparation wheather solution exist
         for i in range(0,11):
             fh.write(str(LSVlist[i])+'\n')
         fh.close()     
